@@ -12,6 +12,7 @@ jobs:
           name: Build front-end
           command: |
             cd frontend
+            npm install
             npm run build
       - save_cache:
           paths: [frontend/node_modules]
@@ -28,6 +29,7 @@ jobs:
           name: Back-end build
           command: |
             cd backend
+            npm install
             npm run build
       - save_cache:
           paths: [backend/node_modules]
@@ -44,6 +46,7 @@ jobs:
           name: Run frontend test
           command: |
             cd frontend
+            npm install
             npm run test
       
   test-backend:
@@ -57,6 +60,7 @@ jobs:
           name: Run backend test
           command: |
             cd backend
+            npm install
             npm run test
 
   scan-frontend:
@@ -70,6 +74,7 @@ jobs:
           name: Analyze frontend for known vulnerability
           command: |
             cd frontend
+            npm install
             npm audit fix --audit-level=critical
             npm audit --audit-level=critical
   
@@ -84,6 +89,7 @@ jobs:
           name: Analyze backend for known vulnerability
           command: |
             cd backend
+            npm install
             npm audit fix --audit-level=critical
             npm audit --audit-level=critical
 
