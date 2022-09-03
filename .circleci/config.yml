@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  slack: circleci/slack@4.10.1
+
 jobs:
   build-frontend:
     docker:
@@ -90,10 +93,26 @@ jobs:
           command: |
             cd backend
             npm install
-            npm install --save-dev webpack@5.74.0
-            npm update mkdirp --depth 6
             npm audit fix --audit-level=critical --force
             npm audit --audit-level=critical
+      - slack/notify:
+          channel: C040GTR98GP
+          event: fail
+          custom: |
+            {
+              "blocks": [
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "plain_text",
+                      "text": "*BACKEND AUDIT FAILED*",
+                      "emoji": true
+                    }
+                  ]
+                }
+              ]
+            }
 
 workflows:
   auto-deploy:
@@ -108,3 +127,4 @@ workflows:
           requires: [build-frontend]
       - scan-backend:
           requires: [build-backend]
+          context: my_context
