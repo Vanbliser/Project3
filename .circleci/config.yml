@@ -41,6 +41,6 @@ workflows:
   auto-deploy:
     jobs:
       - build-backend
-      - build-frontend
+      - build-frontend:
           requires:
            - build-backend
