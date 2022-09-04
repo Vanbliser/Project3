@@ -328,9 +328,9 @@ jobs:
           name: move artifact into .circleci/ansible/roles/deploy/files
           command: |
             ls
-            ls circleci/ansible/roles/deploy/files
+            ls .circleci/ansible/roles/deploy/files
             mv artifact.tar.gz .circleci/ansible/roles/deploy/files
-            ls circleci/ansible/roles/deploy/files
+            ls .circleci/ansible/roles/deploy/files
       - run:
           name: view inventory file
           command: |
