@@ -325,10 +325,12 @@ jobs:
             cd ..
             tar -C backend -czvf artifact.tar.gz .
       - run:
-          name: move artifact into .circleci/ansible/roles/deploy/files/
+          name: move artifact into .circleci/ansible/roles/deploy/files
           command: |
             ls
-            mv artifact.tar.gz .circleci/ansible/roles/deploy/files/
+            ls circleci/ansible/roles/deploy/files
+            mv artifact.tar.gz .circleci/ansible/roles/deploy/files
+            ls circleci/ansible/roles/deploy/files
       - run:
           name: view inventory file
           command: |
