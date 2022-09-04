@@ -19,6 +19,25 @@ commands:
             aws cloudformation delete-stack --stack-name udapeople-backend-<<parameters.id>>
             aws cloudformation delete-stack --stack-name udapeople-frontend-<<parameters.id>>
 
+  revert-migrations:
+    description: Revert the last migration if successfully run in the current workflow.
+    parameters:
+      key:
+        type: string
+        default: migration_${CIRCLE_WORKFLOW_ID:0:7}
+    steps:
+      - run:
+          name: Revert migrations
+          when: on_fail
+          command: |
+            SUCCESS=$(curl --insecure  https://kvdb.io/K7pp94DsaMkkKtgtGAzhMv/<<parameters.key>>)
+            if(( $SUCCESS==1 )); 
+            then
+              cd ~/project/backend
+              npm install
+              npm run migrations:revert
+            fi
+            
 jobs:
   build-frontend:
     docker:
@@ -96,6 +115,9 @@ jobs:
             npm install
             npm audit fix --audit-level=critical --force
             npm audit --audit-level=critical
+      - save_cache:
+          paths: [frontend/node_modules]
+          key: frontend-build
   
   scan-backend:
     docker:
@@ -113,6 +135,9 @@ jobs:
             npm install --save-dev webpack@5.74.0
             npm update mkdirp --depth 6
             npm audit --audit-level=critical
+      - save_cache:
+          paths: [backend/node_modules]
+          key: backend-build
       - slack/notify:
           channel: C040GTR98GP
           event: fail
@@ -158,7 +183,8 @@ jobs:
       - run:
           name: Add back-end ip to ansible inventory
           command: |
-            IP=$(aws ec2 describe-instances --query 'Reservations[*].Instances[*].PublicIpAddress' \
+            IP=$(aws ec2 describe-instances \
+              --query 'Reservations[*].Instances[*].PublicIpAddress' \
               --filters "Name=tag:project,Values=project3" --output text)
             echo $IP >> .circleci/ansible/inventory.txt
             cat .circleci/ansible/inventory.txt
@@ -166,12 +192,129 @@ jobs:
           root: ~/
           paths:
             - project/.circleci/ansible/inventory.txt
-      - run:
-          name: fail job
-          command: exit 1
       - destroy-environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
             
+  configure-infrastructure:
+    docker:
+      - image: cimg/python:3.10.6
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints: ["96:4a:db:8e:55:54:05:76:4f:5c:26:0a:de:d9:7d:0e"]
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: install dependencies
+          command: |
+            pip install --user ansible
+      - run:
+          name: Run playbook and configure server
+          command: |
+            cd .circleci/ansible
+            cat intentory.txt
+            ansible-playbook configure-server.yml -i inventory.txt
+  
+  run-migrations:
+    docker:
+      - image: cimg/node:13.8.0
+    steps:
+      - checkout
+      - restore_cache:
+          keys: [backend-build]
+      - run:
+          name: Run migrations
+          when: always
+          command: |
+            cd backend
+            npm install
+            npm run migrations > migrations_dump.txt
+      - run:
+          name: Send migration status to kvdb.io
+          when: always
+          command: |   
+            if grep -q "has been executed successfully." ~/project/backend/migrations_dump.txt
+            then
+              curl https://kvdb.io/K7pp94DsaMkkKtgtGAzhMv/migration_${CIRCLE_WORKFLOW_ID:0:7}  -d '1'
+            fi
+      - revert-migrations
+
+  deploy-frontend:
+    executor: aws-cli/default
+    steps:
+      - aws-cli/setup
+      - checkout
+      - run:
+          name: install node-13.8.0 and npm-6.13.6
+          command: |
+            sudo apt-get install npm=6.13.6-1chl1~precise1
+            npm cache clean -f
+            npm install -g n
+            n 13.8.0
+      - restore_cache:
+          keys: [frontend-build]
+      - run: 
+          name: install tar and gzip
+          command: |
+            sudo apt-get install -y tar
+            sudo apt install gzip
+      - run:
+          name: get backend url
+          command: |
+            export BACKEND_IP=$(aws ec2 describe-instances \
+              --query 'Reservations[*].Instances[*].PublicIpAddress' \
+              --filters "Name=tag:project,Values=project3" --output text)
+            export API_URL="http://${BACKEND_IP}:3030"
+            echo "API_URL = ${API_URL}"
+            echo API_URL="http://${BACKEND_IP}:3030" >> frontend/.env
+            cat frontend/.env
+      - run:
+          name: deploy frontend objects
+          command: |
+            cd frontend
+            npm install
+            npm run build
+            tar -czvf artifact-"${CIRCLE_WORKFLOW_ID:0:7}".tar.gz dist
+            aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
+      - destroy-environment
+      - revert-migrations
+
+  deploy-backend:
+    docker:
+      - image: cimg/python:3.10.6
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints: ["96:4a:db:8e:55:54:05:76:4f:5c:26:0a:de:d9:7d:0e"]
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Install dependencies
+          command: |
+            pip install --user ansible
+            sudo apt-get install nodejs=13.8.0-1chl1~precise1
+            sudo apt-get install npm=6.13.6-1chl1~precise1
+            sudo apt-get install -y tar
+            sudo apt install gzip
+            node --version
+            npm --version
+      - restore_cache:
+          keys: [backend-build]
+      - run:
+          name: Deploy backend
+          command: |
+            cd backend
+            npm install
+            npm run build
+            cd ..
+            tar -C backend -czvf artifact.tar.gz .
+            cd .circleci/ansible
+            echo "Contents  of the inventory.txt file is -------"
+            cat inventory.txt
+            ansible-playbook -i inventory.txt deploy-backend.yml
+      - destroy-environment
+      - revert-migrations
+
 workflows:
   auto-deploy:
     jobs:
@@ -186,6 +329,15 @@ workflows:
       - scan-backend:
           requires: [build-backend]
           context: my_context
-      - deploy-infrastructure
+      - deploy-infrastructure:
+          requires: [test-frontend, test-backend, scan-frontend, scan-backend]
+      - configure-infrastructure:
+          requires: [deploy-infrastructure]
+      - run-migrations:
+          requires: [configure-infrastructure]
+      - deploy-frontend:
+          requires: [run-migrations]
+      - deploy-backend:
+          requires: [run-migrations]
 
 
