@@ -31,7 +31,8 @@ commands:
           when: on_fail
           command: |
             SUCCESS=$(curl --insecure  https://kvdb.io/K7pp94DsaMkkKtgtGAzhMv/<<parameters.key>>)
-            if(( $SUCCESS==1 )); 
+            echo $SUCCESS
+            if(($SUCCESS==1)); 
             then
               cd ~/project/backend
               npm install
@@ -300,30 +301,40 @@ jobs:
       - attach_workspace:
           at: ./.circleci/ansible
       - run:
-          name: Install dependencies
+          name: Install node
           command: |
-            pip install --user ansible
             sudo npm cache clean -f
             sudo npm install -g n
             sudo n 13.8.0
+      - run:
+          name: install ansible
+          command: pip install --user ansible
+      - run: 
+          name: install tar and gzip
+          command: |
             sudo apt-get install -y tar
             sudo apt install gzip
-            node --version
-            npm --version
       - restore_cache:
           keys: [backend-build]
       - run:
-          name: Deploy backend
+          name: generate artifact.tar.gz
           command: |
             cd backend
             npm install
             npm run build
             cd ..
             tar -C backend -czvf artifact.tar.gz .
+      - run:
+          name: view inventory file
+          command: |
             cd .circleci/ansible
             echo "Contents  of the inventory.txt file is -------"
             cat inventory.txt
-            ansible-playbook -i inventory.txt deploy-backend.yml
+      - run:
+          name: run ansible
+          command: |
+            cd .circleci/ansible
+            ansible-playbook deploy-backend.yml -i inventory.txt
       - destroy-environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
       - revert-migrations:
@@ -349,9 +360,9 @@ workflows:
           requires: [deploy-infrastructure]
       - run-migrations:
           requires: [configure-infrastructure]
-      - deploy-frontend:
-          requires: [run-migrations]
       - deploy-backend:
           requires: [run-migrations]
+      - deploy-frontend:
+          requires: [run-migrations, deploy-backend]
 
 
