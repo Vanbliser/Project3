@@ -166,6 +166,9 @@ jobs:
           root: ~/
           paths:
             - project/.circleci/ansible/inventory.txt
+      - run:
+          name: fail job
+          command: exit 1
       - destroy-environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
             
