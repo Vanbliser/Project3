@@ -183,6 +183,6 @@ workflows:
       - scan-backend:
           requires: [build-backend]
           context: my_context
-      - deploy-infrastructure:
+      - deploy-infrastructure
 
 
