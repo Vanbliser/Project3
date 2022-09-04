@@ -221,8 +221,9 @@ jobs:
       - run:
           name: Run playbook and configure server
           command: |
-            cat .circleci/ansible/inventory.txt
-            ansible-playbook configure-server.yml -i .circleci/ansible/intentory.txt
+            cd .circleci/ansible
+            cat intentory.txt
+            ansible-playbook configure-server.yml -i intentory.txt
       - destroy-environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
 
