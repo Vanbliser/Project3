@@ -196,9 +196,9 @@ jobs:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
             
   configure-infrastructure:
-    docker:
-      - image: cimg/python:3.10.6
+    executor: aws-cli/default
     steps:
+      - aws-cli/setup
       - checkout
       - add_ssh_keys:
           fingerprints: ["96:4a:db:8e:55:54:05:76:4f:5c:26:0a:de:d9:7d:0e"]
@@ -209,9 +209,18 @@ jobs:
       - attach_workspace:
           at: ./.circleci/ansible
       - run:
+          name: check workspace
+          command: |
+            pwd
+            cd .circleci
+            pwd
+            cd ansible
+            pwd
+            ls
+            exit 1
+      - run:
           name: Run playbook and configure server
           command: |
-            cat .circleci/ansible/intentory.txt
             ansible-playbook configure-server.yml -i .circleci/ansible/intentory.txt
       - destroy-environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
