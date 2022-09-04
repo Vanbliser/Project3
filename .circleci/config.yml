@@ -209,31 +209,26 @@ jobs:
       - attach_workspace:
           at: ./.circleci/ansible
       - run:
-          name: check workspace
-          command: |
-            pwd
-            cd .circleci
-            pwd
-            cd ansible
-            pwd
-            ls
-            cat inventory.txt
-      - run:
           name: Run playbook and configure server
           command: |
             cd .circleci/ansible
-            cat inventory.txt
             ansible-playbook configure-server.yml -i inventory.txt
       - destroy-environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
 
   run-migrations:
-    docker:
-      - image: cimg/node:13.8.0
+    executor: aws-cli/default
     steps:
+      - aws-cli/setup
       - checkout
       - restore_cache:
           keys: [backend-build]
+      - run:
+          name: install node-13.8.0
+          command: |
+            npm cache clean -f
+            npm install -g n
+            n 13.8.0
       - run:
           name: Run migrations
           when: always
@@ -248,6 +243,8 @@ jobs:
             if grep -q "has been executed successfully." ~/project/backend/migrations_dump.txt
             then
               curl https://kvdb.io/K7pp94DsaMkkKtgtGAzhMv/migration_${CIRCLE_WORKFLOW_ID:0:7}  -d '1'
+            else
+              exit 1
             fi
       - destroy-environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
@@ -260,9 +257,8 @@ jobs:
       - aws-cli/setup
       - checkout
       - run:
-          name: install node-13.8.0 and npm-6.13.6
+          name: install node-13.8.0
           command: |
-            sudo apt-get install npm=6.13.6-1chl1~precise1
             npm cache clean -f
             npm install -g n
             n 13.8.0
@@ -297,20 +293,21 @@ jobs:
           key: migration_${CIRCLE_WORKFLOW_ID:0:7}
 
   deploy-backend:
-    docker:
-      - image: cimg/python:3.10.6
+    executor: aws-cli/default
     steps:
+      - aws-cli/setup
       - checkout
       - add_ssh_keys:
           fingerprints: ["96:4a:db:8e:55:54:05:76:4f:5c:26:0a:de:d9:7d:0e"]
       - attach_workspace:
-          at: ~/
+          at: ./.circleci/ansible
       - run:
           name: Install dependencies
           command: |
             pip install --user ansible
-            sudo apt-get install nodejs=13.8.0-1chl1~precise1
-            sudo apt-get install npm=6.13.6-1chl1~precise1
+            npm cache clean -f
+            npm install -g n
+            n 13.8.0
             sudo apt-get install -y tar
             sudo apt install gzip
             node --version
