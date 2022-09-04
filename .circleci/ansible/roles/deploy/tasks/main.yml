@@ -8,8 +8,8 @@
 - name: "copy the zipped artifact into the server"
   become: true
   become_method: sudo
-  template:
-    src: "~/project/artifact.tar.gz"
+  copy:
+    src: "artifact.tar.gz"
     dest: "~/artifact.tar.gz"
 
 - name: Extract artifact.tar.gz into ~/web

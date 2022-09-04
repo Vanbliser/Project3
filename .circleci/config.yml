@@ -324,12 +324,15 @@ jobs:
             npm run build
             cd ..
             tar -C backend -czvf artifact.tar.gz .
+            ls
+            mv artifact.tar.gz .circleci/ansible/roles/deploy/files/artifact.tar.gz
       - run:
           name: view inventory file
           command: |
             cd .circleci/ansible
             echo "Contents  of the inventory.txt file is -------"
             cat inventory.txt
+            ls roles/deploy/files/
       - run:
           name: run ansible
           command: |
