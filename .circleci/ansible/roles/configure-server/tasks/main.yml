@@ -18,9 +18,9 @@
 - name: "Install npm and node.js"
   become: true
   apt:
-    name: ["nodejs", "npm", "python3"]
-    state: latest
-    update_cache: yes
+    name: ["nodejs=13.8.0", "npm", "python3=3.9"]
+    state: present
+    allow_downgrade: yes
 
 - name: "Install pm2"
   become: true
