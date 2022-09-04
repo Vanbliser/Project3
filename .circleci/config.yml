@@ -217,6 +217,7 @@ jobs:
             cd ansible
             pwd
             ls
+            cat inventory.txt
             exit 1
       - run:
           name: Run playbook and configure server
