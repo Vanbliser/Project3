@@ -17,6 +17,7 @@ commands:
           when: on_fail
           command: |
             aws cloudformation delete-stack --stack-name udapeople-backend-<<parameters.id>>
+            aws s3 rm s3://udapeople-<<parameters.id>> --recursive
             aws cloudformation delete-stack --stack-name udapeople-frontend-<<parameters.id>>
 
   revert-migrations:
@@ -210,7 +211,7 @@ jobs:
       - attach_workspace:
           at: ./.circleci/ansible
       - run:
-          name: configure server
+          name: configure server and run playbook
           command: |
             echo NODE_ENV=production > ~/project/backend/.env
             echo VERSION: "1" >> ~/project/backend/.env
@@ -227,11 +228,10 @@ jobs:
             cd .circleci/ansible
             ansible-playbook -i inventory.txt configure-server.yml
           no_output_timeout: 40m
-      - run:
-          name: Run playbook and configure server
-          command: |
-            cd .circleci/ansible
-            ansible-playbook configure-server.yml -i inventory.txt
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - project/backend/.env
       - destroy-environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
 
@@ -255,6 +255,8 @@ jobs:
             cd backend
             npm install
             npm run migrations > migrations_dump.txt
+            cat migrations_dump.txt
+            exit 1
       - run:
           name: Send migration status to kvdb.io
           when: always
