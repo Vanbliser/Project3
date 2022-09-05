@@ -109,7 +109,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          keys: [frontend-scan]
+          keys: [frontend-build]
       - run:
           name: Analyze frontend for known vulnerability
           command: |
@@ -119,7 +119,7 @@ jobs:
             npm audit --audit-level=critical
       - save_cache:
           paths: [frontend/node_modules]
-          key: frontend-scan
+          key: frontend-build
   
   scan-backend:
     docker:
@@ -127,7 +127,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          keys: [backend-scan]
+          keys: [backend-build]
       - run:
           name: Analyze backend for known vulnerability
           command: |
@@ -139,7 +139,7 @@ jobs:
             npm audit --audit-level=critical
       - save_cache:
           paths: [backend/node_modules]
-          key: backend-scan
+          key: backend-build
       - slack/notify:
           channel: C040GTR98GP
           event: fail
@@ -218,11 +218,6 @@ jobs:
             cd .circleci/ansible
             ansible-playbook -i inventory.txt configure-server.yml
           no_output_timeout: 30m
-      - persist_to_workspace:
-          root: ~/project
-          paths:
-            - backend/.env
-            - .circleci/ansible/inventory.txt
       - destroy-environment:
           id: ${CIRCLE_WORKFLOW_ID:0:7}
 
@@ -232,7 +227,7 @@ jobs:
       - aws-cli/setup
       - checkout
       - restore_cache:
-          keys: [backend-scan]
+          keys: [backend-build]
       - run:
           name: install node-13.8.0
           command: |
@@ -240,12 +235,22 @@ jobs:
             sudo npm install -g npm
             sudo npm install -g n
             sudo n 13.8.0
-      - run:
-          name: Run migrations
-          when: always
+      - run: 
+          name: run migrations
           command: |
             cd backend
-            npm install
+            touch .env
+            echo ENVIRONMENT=production > ".env"
+            echo TYPEORM_CONNECTION=postgres >> ".env"
+            echo TYPEORM_MIGRATIONS_DIR=./src/migrations >> ".env"
+            echo TYPEORM_ENTITIES=./src/modules/domain/**/*.entity.ts >> ".env"
+            echo TYPEORM_MIGRATIONS=./src/migrations/*.ts >> ".env"
+            echo NODE_ENV=production >> ".env"
+            echo TYPEORM_HOST=$TYPEORM_HOST >> ".env"
+            echo TYPEORM_PORT=$TYPEORM_PORT >> ".env"
+            echo TYPEORM_USERNAME=$TYPEORM_USERNAME >> ".env"
+            echo TYPEORM_PASSWORD=$TYPEORM_PASSWORD >> ".env"
+            echo TYPEORM_DATABASE=$TYPEORM_DATABASE >> ".env"
             npm run migrations > migrations_dump.txt
             cat migrations_dump.txt
       - run:
@@ -269,7 +274,7 @@ jobs:
       - attach_workspace:
           at: ~/project
       - restore_cache:
-          keys: [frontend-scan]
+          keys: [frontend-build]
       - run:
           name: install node-13.8.0
           command: |
@@ -312,7 +317,7 @@ jobs:
       - aws-cli/setup
       - checkout
       - restore_cache:
-          keys: [backend-scan]
+          keys: [backend-build]
       - attach_workspace:
           at: ~/project
       - add_ssh_keys:
