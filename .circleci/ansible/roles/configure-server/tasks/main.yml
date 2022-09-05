@@ -19,8 +19,8 @@
   become: true
   apt:
     name: ["nodejs", "npm", "python3"]
-    state: present
-    allow_downgrade: yes
+    state: latest
+    update_cache: yes 
 
 - name: "Install pm2"
   become: true
