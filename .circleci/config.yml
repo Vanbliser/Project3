@@ -23,7 +23,7 @@ commands:
   revert-migrations:
     description: Revert the last migration if successfully run in the current workflow.
     parameters:
-      key:
+      id:
         type: string
         default: ${CIRCLE_WORKFLOW_ID:0:7}
     steps:
@@ -31,7 +31,9 @@ commands:
           name: Revert migrations
           when: on_fail
           command: |
-            SUCCESS=$(curl --insecure  https://kvdb.io/K7pp94DsaMkkKtgtGAzhMv/<<parameters.key>>)
+            ID=<<parameters.id>>
+            curl -v https://kvdb.io/K7pp94DsaMkkKtgtGAzhMv/$ID
+            SUCCESS=$(curl --insecure  https://kvdb.io/K7pp94DsaMkkKtgtGAzhMv/$ID)
             echo $SUCCESS
             if(($SUCCESS==1)); 
             then
@@ -414,8 +416,6 @@ jobs:
             else
               exit 1
             fi
-      - destroy-environment:
-          id: ${CIRCLE_WORKFLOW_ID:0:7}
       - revert-migrations:
           key: ${CIRCLE_WORKFLOW_ID:0:7}
 
